@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pandas ↔ Polars ↔ SQL ↔ PySpark</title>
+<style>
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        line-height: 1.4;
+        color: #333;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+        box-shadow: 0 0 10px rgba(0,0,0,0.05);
+    }
+    th, td {
+        border: 1px solid #dcdcdc;
+        padding: 12px;
+        text-align: left;
+        vertical-align: top;
+    }
+    th {
+        background-color: #f8f9fa;
+        font-weight: bold;
+        text-align: center;
+        font-size: 1.1em;
+    }
+    td:first-child {
+        font-weight: bold;
+        color: #0066cc;
+        background-color: #f8f9fa;
+        text-align: center;
+        vertical-align: middle;
+    }
+    code {
+        background-color: #f4f4f4;
+        padding: 2px 5px;
+        border-radius: 4px;
+        font-family: "Courier New", Courier, monospace;
+        color: #d14;
+        white-space: pre-wrap;
+    }
+    .current-syntax {
+        display: block;
+        margin-bottom: 5px;
+    }
+    .legacy-syntax {
+        display: block;
+        font-size: 0.85em;
+        color: #666;
+        border-left: 3px solid #f0ad4e;
+        padding-left: 8px;
+        margin-top: 8px;
+    }
+    .note {
+        font-style: italic;
+        color: #888;
+        font-size: 0.9em;
+    }
+</style>
+</head>
+<body>
+
+<table>
+    <thead>
+        <tr>
+            <th>Operation</th>
+            <th>Pandas</th>
+            <th>Polars</th>
+            <th>SQL</th>
+            <th>PySpark</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Import</td>
+            <td><code>import pandas as pd</code></td>
+            <td><code>import polars as pl</code></td>
+            <td>-</td>
+            <td><code>from pyspark.sql import SparkSession<br>spark = SparkSession.builder.appName("ABCD")</code></td>
+        </tr>
+        <tr>
+            <td>Read CSV</td>
+            <td><code>df = pd.read_csv("file.csv")</code></td>
+            <td><code>df = pl.read_csv("file.csv")</code></td>
+            <td><code>LOAD DATA INFILE 'data.csv'<br>INTO TABLE table<br>FIELDS TERMINATED BY ','<br>LINES TERMINATED BY '\n'<br>IGNORE 1 ROWS;</code></td>
+            <td><code>df = spark.read.csv("data.csv")</code></td>
+        </tr>
+        <tr>
+            <td>Print first 10 (or k) rows</td>
+            <td><code>df.head(10)</code></td>
+            <td><code>df.head(10)</code></td>
+            <td><code>SELECT * FROM table<br>LIMIT 10;</code></td>
+            <td><code>df.show(10)</code></td>
+        </tr>
+        <tr>
+            <td>Dimensions</td>
+            <td><code>df.shape</code></td>
+            <td><code>df.shape</code></td>
+            <td><code>SELECT count(*) FROM table;<br>SELECT count(*) FROM INFORMATION_SCHEMA.COLUMNS<br>WHERE TABLE_NAME = 'table';</code></td>
+            <td><code>df.count()<br>len(df.columns)</code></td>
+        </tr>
+        <tr>
+            <td>Datatype</td>
+            <td><code>df.dtypes</code></td>
+            <td>
+                <div class="current-syntax"><code>df.schema</code></div>
+                <div class="legacy-syntax">Note: <code>df.dtypes</code> also works (Pandas compatible)</div>
+            </td>
+            <td><code>DESCRIBE table;</code></td>
+            <td><code>df.printSchema()</code></td>
+        </tr>
+        <tr>
+            <td>Select column(s)</td>
+            <td><code>df[["col1", "col2"]]</code></td>
+            <td>
+                <div class="current-syntax"><code>df.select(["col1", "col2"])</code></div>
+                <div class="legacy-syntax">Legacy (Pandas compatible):<br><code>df[["col1", "col2"]]</code></div>
+            </td>
+            <td><code>SELECT column FROM table;</code></td>
+            <td><code>df.select("col1", "col2")</code></td>
+        </tr>
+        <tr>
+            <td>Filter Data</td>
+            <td><code>df[df["column"] > 10]</code></td>
+            <td>
+                <div class="current-syntax"><code>df.filter(pl.col("column") > 10)</code></div>
+                <div class="legacy-syntax">Legacy (PySpark/Pandas compatible):<br><code>df.filter(df["column"] > 10)</code></div>
+            </td>
+            <td><code>SELECT * FROM table<br>WHERE column > 10;</code></td>
+            <td><code>df.filter(df["column"] > 10)</code></td>
+        </tr>
+        <tr>
+            <td>Sort</td>
+            <td><code>df.sort_values("column")</code></td>
+            <td><code>df.sort("column")</code></td>
+            <td><code>SELECT * FROM table<br>ORDER BY column;</code></td>
+            <td><code>df.orderBy("column")</code></td>
+        </tr>
+        <tr>
+            <td>Fill NaN</td>
+            <td><code>df["column"].fillna(0)</code></td>
+            <td>
+                <div class="current-syntax"><code>df.with_columns(pl.col("column").fill_null(0))</code></div>
+                <div class="legacy-syntax">Legacy Series API:<br><code>df["column"].fill_null(0)</code></div>
+            </td>
+            <td><code>UPDATE table<br>SET column = 0<br>WHERE column IS NULL;</code></td>
+            <td><code>df.na.fill(0)</code></td>
+        </tr>
+        <tr>
+            <td>Join</td>
+            <td><code>pd.merge(df1, df2,<br>on="col", how="inner")</code></td>
+            <td><code>df1.join(df2, on="col", how="inner")</code></td>
+            <td><code>SELECT * FROM table1<br>JOIN table2<br>ON (table1.col = table2.col);</code></td>
+            <td><code>df1.join(df2, on="col", how="inner")</code></td>
+        </tr>
+        <tr>
+            <td>Concatenate</td>
+            <td><code>pd.concat([df1, df2])</code></td>
+            <td><code>pl.concat([df1, df2])</code></td>
+            <td><code>SELECT * FROM table1<br>UNION ALL<br>SELECT * FROM table2;</code></td>
+            <td><code>df1.union(df2)</code></td>
+        </tr>
+        <tr>
+            <td>Group</td>
+            <td><code>df.groupby("column")["agg_col"].mean()</code></td>
+            <td>
+                <div class="current-syntax"><code>df.group_by("column").agg(pl.col("agg_col").mean())</code></div>
+                <div class="legacy-syntax">Legacy (PySpark <code>groupBy</code> compatible):<br><code>df.groupby("column").agg(pl.mean("agg_col"))</code></div>
+            </td>
+            <td><code>SELECT column, avg(agg_col)<br>FROM table<br>GROUP BY column;</code></td>
+            <td><code>df.groupBy("column").agg(avg("agg_col"))</code></td>
+        </tr>
+        <tr>
+            <td>Unique values</td>
+            <td><code>df["column"].unique()</code></td>
+            <td><code>df.select(pl.col("column").unique())</code><br><span class="note">or</span> <code>df["column"].unique()</code></td>
+            <td><code>SELECT DISTINCT column<br>FROM table;</code></td>
+            <td><code>df.select("column").distinct()</code></td>
+        </tr>
+        <tr>
+            <td>Rename column</td>
+            <td><code>df.rename(columns={"old_name": "new_name"})</code></td>
+            <td><code>df.rename({"old_name": "new_name"})</code></td>
+            <td><code>ALTER TABLE table<br>RENAME COLUMN old_name TO new_name;</code></td>
+            <td><code>df.withColumnsRenamed({"old_name": "new_name"})</code></td>
+        </tr>
+        <tr>
+            <td>Delete column</td>
+            <td><code>df.drop(columns=["column"])</code></td>
+            <td><code>df.drop(["column"])</code></td>
+            <td><code>ALTER TABLE table<br>DROP COLUMN column;</code></td>
+            <td><code>df.drop("col1", "col2")</code></td>
+        </tr>
+    </tbody>
+</table>
+
+</body>
+</html>
